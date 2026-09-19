@@ -40,11 +40,11 @@ Field wells
 
 *Row Identifier* takes the column that identifies a row; *Columns* takes everything else.
 
-Privacy
--------
+Privacy and terms
+-----------------
 
 TableSearch makes no network calls, collects nothing and stores nothing.
-See [PRIVACY.md](PRIVACY.md).
+See [PRIVACY.md](PRIVACY.md) and [TERMS.md](TERMS.md).
 
 Author
 ------

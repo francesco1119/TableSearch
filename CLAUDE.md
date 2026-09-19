@@ -45,8 +45,8 @@ trademark, but that was accepted.
 - Submission runs through Partner Center (<https://partner.microsoft.com/dashboard>) and needs a
   verified identity — **start that early, it takes days**. Guide:
   <https://learn.microsoft.com/en-us/power-bi/developer/visuals/office-store>.
-- The listing additionally requires a **terms-of-use URL** and at least one **1366×768
-  screenshot**. `PRIVACY.md` covers the privacy policy; `supportUrl` and the 300×300 icon are done.
+- The listing still needs one **1366×768 screenshot**. `PRIVACY.md` and `TERMS.md` cover the
+  privacy-policy and terms-of-use URLs; `supportUrl` and the 300×300 icon are done.
 - AppSource has no payment mechanism for visuals, which is moot here — nothing is being sold.
 
 ## Provenance and licence
