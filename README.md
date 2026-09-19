@@ -31,11 +31,24 @@ Layout
 | --- | --- |
 | `src/visual.ts` | Power BI plumbing: dataView, selection IDs, cross-filtering, paging |
 | `src/table.ts` | the table widget — header, filtering, sorting, virtualised body |
-| `src/settings.ts` | defaults, pending the Format Pane migration |
+| `src/settings.ts` | the format pane: table, column search and colour settings |
 | `style/style.less` | styles |
-| `capabilities.json` | data roles and the data reduction window |
+| `capabilities.json` | data roles, format-pane objects, and the data reduction window |
 
 Field wells
 -----------
 
 *Row Identifier* takes the column that identifies a row; *Columns* takes everything else.
+
+Privacy
+-------
+
+TableSearch makes no network calls, collects nothing and stores nothing.
+See [PRIVACY.md](PRIVACY.md).
+
+Author
+------
+
+Francesco Mantovani — <https://www.jeeja.biz/>
+
+Bugs and feature requests: <https://github.com/francesco1119/TableSearch/issues>

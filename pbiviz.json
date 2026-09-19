@@ -6,7 +6,7 @@
     "visualClassName": "TableSearchVisual",
     "version": "1.0.0.0",
     "description": "A Power BI table with a search box under every column header. Filter each column independently, click a header to sort, and click rows to cross-filter the report.",
-    "supportUrl": "https://example.com/tablesearch-support",
+    "supportUrl": "https://github.com/francesco1119/TableSearch/issues",
     "gitHubUrl": "https://github.com/francesco1119/TableSearch"
   },
   "apiVersion": "5.11.0",

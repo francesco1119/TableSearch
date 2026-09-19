@@ -45,9 +45,8 @@ trademark, but that was accepted.
 - Submission runs through Partner Center (<https://partner.microsoft.com/dashboard>) and needs a
   verified identity — **start that early, it takes days**. Guide:
   <https://learn.microsoft.com/en-us/power-bi/developer/visuals/office-store>.
-- The listing additionally requires a **privacy policy URL**, a **terms-of-use URL**, a real
-  **support URL** (still a placeholder in `pbiviz.json`), at least one **1366×768 screenshot**,
-  and a **300×300 icon** (`assets/icon.png` is 20×20 and still the inherited LineUp artwork).
+- The listing additionally requires a **terms-of-use URL** and at least one **1366×768
+  screenshot**. `PRIVACY.md` covers the privacy policy; `supportUrl` and the 300×300 icon are done.
 - AppSource has no payment mechanism for visuals, which is moot here — nothing is being sold.
 
 ## Provenance and licence
@@ -137,14 +136,14 @@ real edge cases, so that one stays.
 - **Published** at <https://github.com/francesco1119/TableSearch>, branch `main`, MIT, public.
   History starts clean at one commit; the inherited clone history survives only on the local
   `tablesearch` and `master` branches, which were never pushed.
-- **Replace the placeholder `supportUrl`** in `pbiviz.json`; `gitHubUrl` is set.
+
 - **`pbiviz start` cannot generate a dev certificate on this machine**: `New-SelfSignedCertificate:
   Parameter cannot be processed because the parameter name 'Subject' is ambiguous` — a Windows
   PowerShell 5.1 clash. Packaging is unaffected; only watch mode is blocked.
 - **9 optional features** flagged by the packager: Allow Interactions, Color Palette, Context
   Menu, High Contrast, Keyboard Navigation, Landing Page, Localizations, Rendering Events,
   Tooltips.
-- `assets/icon.png` is still the inherited LineUp artwork, and 20×20 where AppSource wants 300×300.
+
 - **Not yet built:** column resizing, column reordering, tooltips, keyboard navigation, and any
   number/date formatting beyond `toLocaleString` / `toLocaleDateString`.
 
