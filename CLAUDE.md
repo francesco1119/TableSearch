@@ -101,9 +101,17 @@ Three source files, no framework.
   `createSelectionIdBuilder().withTable(table, i)`, two-way cross-filtering with an
   `applyingSelection` guard, `fetchMoreData` paging against `dataView.metadata.segment`,
   field-well sort, and a resize fast-path that skips re-extraction.
-- **`src/settings.ts`** — plain defaults, meaningful once the Format Pane migration lands.
+- **`src/settings.ts`** — the format pane, via `powerbi-visuals-utils-formattingmodel`. Three
+  cards: Table (row height, text size, alternate shading), Column search (show/hide), Colors
+  (header, text, grid, selected row). Every `name` here must match an entry under `objects` in
+  `capabilities.json` exactly, or the pane drops the slice without complaint. Colours and text
+  size reach the table as CSS custom properties, so a change restyles it without touching DOM.
 
 ## Toolchain
+
+Build with **`npm run package`**, not bare `pbiviz package` — the script adds `--no-stats`,
+which suppresses the `webpack.statistics.prod.html` bundle report otherwise written into the
+repo root on every build.
 
 API 1.10 / tools 2.1 → **API 5.11 / tools 7.2.1**. Installed with **npm** (yarn 1 cannot extract
 the old tarballs and is not used here).
@@ -130,15 +138,12 @@ real edge cases, so that one stays.
   History starts clean at one commit; the inherited clone history survives only on the local
   `tablesearch` and `master` branches, which were never pushed.
 - **Replace the placeholder `supportUrl`** in `pbiviz.json`; `gitHubUrl` is set.
-- **Format Pane migration is required**, not optional — `pbiviz package` reports it as "going to be
-  required soon". Needs `getFormattingModel` via `powerbi-visuals-utils-formattingmodel` (already
-  installed) plus real `objects` in `capabilities.json`, which makes `src/settings.ts` meaningful
-  again.
 - **`pbiviz start` cannot generate a dev certificate on this machine**: `New-SelfSignedCertificate:
   Parameter cannot be processed because the parameter name 'Subject' is ambiguous` — a Windows
   PowerShell 5.1 clash. Packaging is unaffected; only watch mode is blocked.
-- **8 optional features** flagged by the packager: Allow Interactions, Context Menu, High Contrast,
-  Keyboard Navigation, Landing Page, Localizations, Rendering Events, Tooltips.
+- **9 optional features** flagged by the packager: Allow Interactions, Color Palette, Context
+  Menu, High Contrast, Keyboard Navigation, Landing Page, Localizations, Rendering Events,
+  Tooltips.
 - `assets/icon.png` is still the inherited LineUp artwork, and 20×20 where AppSource wants 300×300.
 - **Not yet built:** column resizing, column reordering, tooltips, keyboard navigation, and any
   number/date formatting beyond `toLocaleString` / `toLocaleDateString`.

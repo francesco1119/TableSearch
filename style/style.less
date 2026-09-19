@@ -8,6 +8,7 @@
 @font-stack: "Segoe UI", "wf_segoe-ui_normal", helvetica, arial, sans-serif;
 
 @border: #e1e1e1;
+
 @border-strong: #c8c8c8;
 @text: #252423;
 @text-muted: #605e5c;
@@ -20,9 +21,17 @@
   position: absolute;
   inset: 0;
   font-family: @font-stack;
-  font-size: 12px;
-  color: @text;
   overflow: hidden;
+}
+
+/*
+ * The format pane writes its values onto .ts-root as custom properties, so changing a colour or
+ * the text size restyles the table without rebuilding any DOM. The fallbacks here are what the
+ * table looks like before the first update arrives.
+ */
+.ts-root {
+  font-size: var(--ts-font-size, 12px);
+  color: var(--ts-text, @text);
 }
 
 .ts-root {
@@ -39,7 +48,7 @@
 .ts-head {
   flex: 0 0 auto;
   overflow: hidden;
-  background: @header-bg;
+  background: var(--ts-header-bg, @header-bg);
   border-bottom: 1px solid @border-strong;
 }
 
@@ -51,7 +60,7 @@
   flex: 0 0 auto;
   box-sizing: border-box;
   padding: 4px 6px 6px;
-  border-right: 1px solid @border;
+  border-right: 1px solid var(--ts-grid, @border);
 
   &:last-child {
     border-right: none;
@@ -91,7 +100,7 @@
   padding: 2px 5px;
   font-family: inherit;
   font-size: 11px;
-  color: @text;
+  color: var(--ts-text, @text);
   background: #fff;
   border: 1px solid @border-strong;
   border-radius: 2px;
@@ -127,14 +136,18 @@
   display: flex;
   align-items: center;
   cursor: pointer;
-  border-bottom: 1px solid @border;
+  border-bottom: 1px solid var(--ts-grid, @border);
 
   &:hover {
     background: @row-hover;
   }
 
+  &.ts-alt {
+    background: fade(#000, 3%);
+  }
+
   &.ts-selected {
-    background: @row-selected;
+    background: var(--ts-selected, @row-selected);
   }
 }
 
@@ -156,4 +169,9 @@
 .ts-empty {
   padding: 12px;
   color: @text-muted;
+}
+
+/* "Show search boxes" off in the format pane. */
+.ts-no-search .ts-th-filter {
+  display: none;
 }

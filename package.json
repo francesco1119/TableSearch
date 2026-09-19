@@ -6,7 +6,7 @@
   "license": "MIT",
   "scripts": {
     "start": "pbiviz start",
-    "package": "pbiviz package",
+    "package": "pbiviz package --no-stats",
     "lint": "eslint src --ext .ts"
   },
   "dependencies": {

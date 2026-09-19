@@ -14,8 +14,9 @@
  */
 
 import powerbi from 'powerbi-visuals-api';
+import { FormattingSettingsService } from 'powerbi-visuals-utils-formattingmodel';
 
-import { ISortState, ITableColumn, SearchTable } from './table';
+import { IAppearance, ISortState, ITableColumn, SearchTable } from './table';
 import { TableSearchSettings } from './settings';
 import '../style/style.less';
 
@@ -42,7 +43,8 @@ export class TableSearchVisual implements IVisual {
     private readonly selectionManager: ISelectionManager;
     private readonly container: HTMLElement;
     private readonly table: SearchTable;
-    private readonly settings = new TableSearchSettings();
+    private readonly formattingService = new FormattingSettingsService();
+    private settings = new TableSearchSettings();
 
     /** Row index -> selection id, rebuilt on every extract. */
     private ids: ISelectionId[] = [];
@@ -61,11 +63,10 @@ export class TableSearchVisual implements IVisual {
         this.container.className = 'ts';
         options.element.appendChild(this.container);
 
-        this.table = new SearchTable(
-            this.container,
-            { onSelectionChanged: (indices) => this.onTableSelection(indices) },
-            this.settings.table
-        );
+        this.table = new SearchTable(this.container, {
+            onSelectionChanged: (indices) => this.onTableSelection(indices),
+        });
+        this.table.setAppearance(this.appearance());
 
         // Power BI can clear or change the selection from outside the visual — another visual's
         // selection, or the report's clear-filter button. Mirror that back into the table.
@@ -88,6 +89,12 @@ export class TableSearchVisual implements IVisual {
             return;
         }
 
+        this.settings = this.formattingService.populateFormattingSettingsModel(
+            TableSearchSettings,
+            dataView
+        );
+        this.table.setAppearance(this.appearance());
+
         this.waitingForMoreData = false;
 
         const { columns, rows, ids, sort } = this.extract(table);
@@ -99,6 +106,26 @@ export class TableSearchVisual implements IVisual {
         this.restoreSelection();
 
         this.requestMoreDataIfAvailable(dataView);
+    }
+
+    /** Called by the host to render the format pane. */
+    public getFormattingModel(): powerbi.visuals.FormattingModel {
+        return this.formattingService.buildFormattingModel(this.settings);
+    }
+
+    /** Flattens the format-pane model into what the table actually needs. */
+    private appearance(): IAppearance {
+        const { table, search, colors } = this.settings;
+        return {
+            rowHeight: table.rowHeight.value,
+            fontSize: table.fontSize.value,
+            alternateRows: table.alternateRows.value,
+            showSearch: search.show.value,
+            headerBackground: colors.headerBackground.value.value,
+            textColor: colors.textColor.value.value,
+            gridColor: colors.gridColor.value.value,
+            selectionColor: colors.selectionColor.value.value,
+        };
     }
 
     public destroy(): void {

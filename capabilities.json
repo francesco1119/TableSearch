@@ -12,7 +12,55 @@
             "kind": "Measure"
         }
     ],
-    "objects": {},
+    "objects": {
+        "table": {
+            "displayName": "Table",
+            "properties": {
+                "rowHeight": {
+                    "displayName": "Row height",
+                    "type": { "numeric": true }
+                },
+                "fontSize": {
+                    "displayName": "Text size",
+                    "type": { "formatting": { "fontSize": true } }
+                },
+                "alternateRows": {
+                    "displayName": "Alternate row shading",
+                    "type": { "bool": true }
+                }
+            }
+        },
+        "search": {
+            "displayName": "Column search",
+            "properties": {
+                "show": {
+                    "displayName": "Show search boxes",
+                    "type": { "bool": true }
+                }
+            }
+        },
+        "colors": {
+            "displayName": "Colors",
+            "properties": {
+                "headerBackground": {
+                    "displayName": "Header background",
+                    "type": { "fill": { "solid": { "color": true } } }
+                },
+                "textColor": {
+                    "displayName": "Text",
+                    "type": { "fill": { "solid": { "color": true } } }
+                },
+                "gridColor": {
+                    "displayName": "Grid lines",
+                    "type": { "fill": { "solid": { "color": true } } }
+                },
+                "selectionColor": {
+                    "displayName": "Selected row",
+                    "type": { "fill": { "solid": { "color": true } } }
+                }
+            }
+        }
+    },
     "supportsHighlight": true,
     "supportsMultiVisualSelection": true,
     "advancedEditModeSupport": 2,

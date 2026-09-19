@@ -29,7 +29,6 @@ export interface ISortState {
 }
 
 export interface ITableOptions {
-    rowHeight: number;
     /** Narrowest a column may be squeezed to before the table scrolls horizontally. */
     minColumnWidth: number;
     /** Quiet period after the last keystroke before a filter is applied. */
@@ -39,11 +38,28 @@ export interface ITableOptions {
 }
 
 export const DEFAULT_TABLE_OPTIONS: ITableOptions = {
-    rowHeight: 24,
     minColumnWidth: 120,
     filterDebounceMs: 150,
     overscan: 10,
 };
+
+/**
+ * Everything the format pane controls.
+ *
+ * Colours and text size are pushed out as CSS custom properties, so changing them restyles the
+ * table without touching the DOM. Row height is the exception: the virtualiser measures in
+ * pixels and has to be told.
+ */
+export interface IAppearance {
+    rowHeight: number;
+    fontSize: number;
+    alternateRows: boolean;
+    showSearch: boolean;
+    headerBackground: string;
+    textColor: string;
+    gridColor: string;
+    selectionColor: string;
+}
 
 export interface ITableCallbacks {
     /** Fired when the user changes the row selection, with indices into the unfiltered rows. */
@@ -136,6 +152,9 @@ export class SearchTable {
 
     private columnWidth = 0;
 
+    private rowHeight = 24;
+    private alternateRows = false;
+
     constructor(container: HTMLElement, callbacks: ITableCallbacks, options?: Partial<ITableOptions>) {
         this.options = { ...DEFAULT_TABLE_OPTIONS, ...options };
         this.callbacks = callbacks;
@@ -191,6 +210,30 @@ export class SearchTable {
         }
 
         this.refreshView();
+    }
+
+    /** Applies the format pane's settings. */
+    public setAppearance(appearance: IAppearance): void {
+        const style = this.root.style;
+        style.setProperty('--ts-font-size', `${appearance.fontSize}px`);
+        style.setProperty('--ts-header-bg', appearance.headerBackground);
+        style.setProperty('--ts-text', appearance.textColor);
+        style.setProperty('--ts-grid', appearance.gridColor);
+        style.setProperty('--ts-selected', appearance.selectionColor);
+
+        this.root.classList.toggle('ts-no-search', !appearance.showSearch);
+        this.alternateRows = appearance.alternateRows;
+
+        const rowHeight = Math.max(12, Math.round(appearance.rowHeight));
+        const heightChanged = rowHeight !== this.rowHeight;
+        this.rowHeight = rowHeight;
+
+        if (heightChanged) {
+            // The virtualiser caches measurements against the old height, so it has to be told
+            // before the next paint.
+            this.syncVirtualizer();
+        }
+        this.renderBody();
     }
 
     /** Applies the sort coming from Power BI's own field-well sort state. */
@@ -383,7 +426,7 @@ export class SearchTable {
         const opts = {
             count: this.view.length,
             getScrollElement: () => this.body,
-            estimateSize: () => this.options.rowHeight,
+            estimateSize: () => this.rowHeight,
             overscan: this.options.overscan,
             scrollToFn: elementScroll,
             observeElementRect,
@@ -433,6 +476,9 @@ export class SearchTable {
 
             const tr = document.createElement('div');
             tr.className = 'ts-row';
+            if (this.alternateRows && item.index % 2 === 1) {
+                tr.classList.add('ts-alt');
+            }
             tr.dataset.row = String(rowIndex);
             tr.style.height = `${item.size}px`;
             tr.style.transform = `translateY(${item.start}px)`;
