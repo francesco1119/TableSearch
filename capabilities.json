@@ -1,0 +1,47 @@
+{
+    "privileges": [],
+    "dataRoles": [
+        {
+            "displayName": "Row Identifier",
+            "name": "row",
+            "kind": "Grouping"
+        },
+        {
+            "displayName": "Columns",
+            "name": "columns",
+            "kind": "Measure"
+        }
+    ],
+    "objects": {},
+    "supportsHighlight": true,
+    "supportsMultiVisualSelection": true,
+    "advancedEditModeSupport": 2,
+    "sorting": {
+        "custom": {}
+    },
+    "dataViewMappings": [
+        {
+            "table": {
+                "rows": {
+                    "select": [
+                        {
+                            "for": {
+                                "in": "row"
+                            }
+                        },
+                        {
+                            "for": {
+                                "in": "columns"
+                            }
+                        }
+                    ],
+                    "dataReductionAlgorithm": {
+                        "window": {
+                            "count": 30000
+                        }
+                    }
+                }
+            }
+        }
+    ]
+}

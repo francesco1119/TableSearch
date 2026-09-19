@@ -1,0 +1,159 @@
+/*
+ * TableSearch — styles
+ *
+ * Everything here is the visual's own; nothing is inherited from a table library. Colours are
+ * neutral greys so the table sits inside whatever report theme it is dropped into.
+ */
+
+@font-stack: "Segoe UI", "wf_segoe-ui_normal", helvetica, arial, sans-serif;
+
+@border: #e1e1e1;
+@border-strong: #c8c8c8;
+@text: #252423;
+@text-muted: #605e5c;
+@header-bg: #faf9f8;
+@row-hover: #f3f2f1;
+@row-selected: #deecf9;
+@focus: #0078d4;
+
+.ts {
+  position: absolute;
+  inset: 0;
+  font-family: @font-stack;
+  font-size: 12px;
+  color: @text;
+  overflow: hidden;
+}
+
+.ts-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+}
+
+/*
+ * The header is outside the scrolling body so it stays put vertically. It is scrolled sideways
+ * by hand from the body's scroll handler, which is why its own overflow is hidden.
+ */
+.ts-head {
+  flex: 0 0 auto;
+  overflow: hidden;
+  background: @header-bg;
+  border-bottom: 1px solid @border-strong;
+}
+
+.ts-head-row {
+  display: flex;
+}
+
+.ts-th {
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  padding: 4px 6px 6px;
+  border-right: 1px solid @border;
+
+  &:last-child {
+    border-right: none;
+  }
+}
+
+.ts-th-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  line-height: 18px;
+  user-select: none;
+
+  &:hover {
+    color: @focus;
+  }
+}
+
+.ts-th-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ts-th-sort {
+  flex: 0 0 auto;
+  font-size: 9px;
+  color: @text-muted;
+}
+
+.ts-th-filter {
+  box-sizing: border-box;
+  width: 100%;
+  margin-top: 4px;
+  padding: 2px 5px;
+  font-family: inherit;
+  font-size: 11px;
+  color: @text;
+  background: #fff;
+  border: 1px solid @border-strong;
+  border-radius: 2px;
+
+  &::placeholder {
+    color: @text-muted;
+  }
+
+  &:focus {
+    outline: none;
+    border-color: @focus;
+  }
+}
+
+.ts-body {
+  flex: 1 1 auto;
+  position: relative;
+  overflow: auto;
+}
+
+/*
+ * Holds the full scroll height while only the visible rows exist in the DOM. Rows are placed
+ * on it absolutely, at the offset the virtualiser reports.
+ */
+.ts-spacer {
+  position: relative;
+}
+
+.ts-row {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  border-bottom: 1px solid @border;
+
+  &:hover {
+    background: @row-hover;
+  }
+
+  &.ts-selected {
+    background: @row-selected;
+  }
+}
+
+.ts-cell {
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  padding: 0 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A blank value reads as a dash rather than as a cell that failed to render. */
+.ts-missing::before {
+  content: "—";
+  color: @text-muted;
+}
+
+.ts-empty {
+  padding: 12px;
+  color: @text-muted;
+}
