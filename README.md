@@ -8,8 +8,7 @@ A Power BI custom visual: a table with **a search box under every column header*
 - Click a row (ctrl-click for several) to cross-filter the rest of the report.
 - Rows are virtualised, so large tables scroll without rendering what is off screen.
 
-Commercial software. This repository is private and the visual is not open source; the MIT
-notice in `src/visual.ts` covers the wrapper it was derived from. See `CLAUDE.md` for provenance.
+Free and open source under the [MIT licence](LICENSE). Contributions welcome.
 
 Build
 -----

@@ -10,11 +10,12 @@
 
 # TableSearch
 
-A **commercial Power BI custom visual**: a table with **a search box under every column header**.
-Click a header to sort, type to filter that column, click rows to cross-filter the report.
+A **free, open-source Power BI custom visual**: a table with **a search box under every column
+header**. Click a header to sort, type to filter that column, click rows to cross-filter the
+report.
 
-It is to be **sold**, and the repository is to be **private**. This is a product, not a fork
-maintained for the community.
+MIT licensed, public at <https://github.com/francesco1119/TableSearch>, and to be listed free on
+AppSource so it can be installed from Power BI's *Get more visuals*.
 
 ## Identity — do not change these
 
@@ -31,58 +32,31 @@ Power BI binds reports to the GUID. Changing it after release breaks every repor
 visual. It was generated fresh for this project — the clone's original
 (`lineuppowerbiE314DAA0C5D64CB288D237BF5C4CA3CD`, Samuel Gratzl's) has been replaced.
 
-**The name went through two rounds.** "TableSorter" was rejected: it is Microsoft's name for the
-retired visual this replaces (MIT licenses the code, not the trademark), and **jQuery tablesorter**
-is a well-known library under that exact name — an AppSource rejection risk on confusing similarity
-and a dead end for trademarking. "TableSearch" clears both. It is still descriptive, so weak to
+**Do not rename it "TableSorter".** That name was considered and rejected: **jQuery tablesorter**
+is a well-known library under exactly it — an AppSource rejection risk on confusing similarity,
+and a dead end for trademarking. "TableSearch" clears that. It is still descriptive, so weak to
 trademark, but that was accepted.
 
-## Commercial constraints, established
+## Publishing to AppSource
 
-- **AppSource has no payment mechanism for visuals.** You list there and enforce licensing
-  yourself. That is how paid Power BI visuals actually work.
-- **A certified visual may not make network calls.** A phone-home licence check and certification
-  are therefore mutually exclusive. Pick one.
-- **okviz.com is not a marketplace.** It is a trademark of SQLBI Corp selling its own visuals
-  (Smart Filter Pro, Card with States, Synoptic Panel). No submit-your-visual programme; listing
-  there would be a partnership conversation, not an upload.
+- **Listing is free; certification is separate and optional.** You only need certification for
+  the visual to render in Power BI Service exports and email subscriptions. It is the stricter
+  track: source review, and **no network calls at all**.
 - Submission runs through Partner Center (<https://partner.microsoft.com/dashboard>) and needs a
-  verified company identity — **start that early, it takes days**. Guide:
+  verified identity — **start that early, it takes days**. Guide:
   <https://learn.microsoft.com/en-us/power-bi/developer/visuals/office-store>.
+- The listing additionally requires a **privacy policy URL**, a **terms-of-use URL**, a real
+  **support URL** (still a placeholder in `pbiviz.json`), at least one **1366×768 screenshot**,
+  and a **300×300 icon** (`assets/icon.png` is 20×20 and still the inherited LineUp artwork).
+- AppSource has no payment mechanism for visuals, which is moot here — nothing is being sold.
 
 ## Provenance and licence
 
-The visual is **original code**. It began as the archived **`lineupjs/lineup_powerbi`** wrapper
-(MIT, Copyright © Samuel Gratzl) around **LineUp.js**, and that engine was dropped once the
-product's actual shape was clear (see *Why LineUp was dropped*). No LineUp code remains; the
-dataView handling in `src/visual.ts` still owes its shape to that wrapper, and the MIT notice is
-retained at the top of the file.
-
-Two dead attempts at a LineUp visual for Power BI exist. Both are archived and read-only, so
-**neither could accept a pull request** — hence a private product rather than an upstream
-contribution.
-
-| Repo | State | Base | Verdict |
-| --- | --- | --- | --- |
-| `microsoft/PowerBI-visuals-TableSorter` | archived **11 Jun 2026**, MIT | LineUp **v1** (`lineup-v1@0.2.0`, Dec 2016) | rejected as a base |
-| `lineupjs/lineup_powerbi` | archived **22 Jul 2022**, MIT | **LineUp.js**, current | starting point, since replaced |
-
-Microsoft's TableSorter was never a product: the author was "Microsoft (experimental)" at
-`msrvizsupport@microsoft.com` (Microsoft Research, not the Power BI team), every internal dependency
-was `@essex/*`, and the README and visual description both said *"This visual is experimental and
-not actively being developed, only major issues will be addressed."* It died in a dormant-repo
-sweep — issue #69 "[Action Needed] This repo is inactive" (1 Apr 2025) preceded the archive. Last
-real commit **6 Sep 2018**; the only later change was a bot adding `SECURITY.md` in Sep 2022.
-
-Its open issues corroborated a source review: **#51** "only shows 1000 rows" (refiled after **#39**
-was closed without a fix), **#50** "we are able to add duplicate columns", **#48** header colour,
-**#40** rank colors broken. Its build was unrecoverable anyway — webpack 1 inline loader syntax
-(`require("!css!sass!…")`), lodash 3 deep paths, `powerbi-visuals-tools@1.11.3` (needs Node 6), and
-`node-sass@4`, which cannot compile on modern Node (wants Python 2 and node-gyp 3; confirmed
-failing on Node 24).
-
-A clone of the Microsoft repo, with partial source fixes applied before it was abandoned, is still
-at `C:\GitHub\PowerBI-visuals-TableSorter`. Nothing there is needed.
+The visual is **original code**. It started from the archived **`lineupjs/lineup_powerbi`**
+wrapper (MIT, Copyright © Samuel Gratzl) around **LineUp.js**, and that engine was dropped once
+the product's actual shape was clear (see *Why LineUp was dropped*). No LineUp code remains; the
+dataView handling in `src/visual.ts` still owes its shape to that wrapper, so the attribution is
+kept there and in `LICENSE`.
 
 ## Why LineUp was dropped
 
@@ -152,9 +126,10 @@ real edge cases, so that one stays.
 
 # Outstanding
 
-- **No git remote.** `origin` pointed at the archived upstream and has been removed; nothing is
-  committed. Create the private repo and repoint. Git history from the original clone is retained.
-- **Replace the placeholder `supportUrl`**, and set `gitHubUrl` (or leave it empty).
+- **Published** at <https://github.com/francesco1119/TableSearch>, branch `main`, MIT, public.
+  History starts clean at one commit; the inherited clone history survives only on the local
+  `tablesearch` and `master` branches, which were never pushed.
+- **Replace the placeholder `supportUrl`** in `pbiviz.json`; `gitHubUrl` is set.
 - **Format Pane migration is required**, not optional — `pbiviz package` reports it as "going to be
   required soon". Needs `getFormattingModel` via `powerbi-visuals-utils-formattingmodel` (already
   installed) plus real `objects` in `capabilities.json`, which makes `src/settings.ts` meaningful
@@ -163,9 +138,8 @@ real edge cases, so that one stays.
   Parameter cannot be processed because the parameter name 'Subject' is ambiguous` — a Windows
   PowerShell 5.1 clash. Packaging is unaffected; only watch mode is blocked.
 - **8 optional features** flagged by the packager: Allow Interactions, Context Menu, High Contrast,
-  Keyboard Navigation, Landing Page, Localizations, Rendering Events, Tooltips. Several are
-  effectively expected of a paid visual.
-- `assets/icon.png` is still the inherited LineUp icon. Needs its own.
+  Keyboard Navigation, Landing Page, Localizations, Rendering Events, Tooltips.
+- `assets/icon.png` is still the inherited LineUp artwork, and 20×20 where AppSource wants 300×300.
 - **Not yet built:** column resizing, column reordering, tooltips, keyboard navigation, and any
   number/date formatting beyond `toLocaleString` / `toLocaleDateString`.
 
