@@ -77,11 +77,11 @@ Two of its behaviours were outright blockers:
 
 Both were worked around before the rewrite. The rewrite removed the need for the workarounds.
 
-# State: rewritten, builds clean, rendered once
+# State: working, published, unlisted
 
-`pbiviz package` succeeds. The LineUp-based version was verified rendering in Desktop on
-19 Sep 2026 (463 rows, per-column filter box, cross-filtering). **The rewrite that replaced it has
-not yet been loaded into Desktop.** Bundle: **34 KB of JS**, down from 769 KB.
+Verified working in Power BI Desktop on 19 Sep 2026: renders, filters per column, sorts on header
+click, cross-filters the report on row click, and the format pane applies. Published to GitHub.
+Not yet listed on AppSource. Bundle: **34 KB of JS**, down from 769 KB under LineUp.
 
 **CSS trap:** in powerbi-visuals-tools 7 the `style` field in `pbiviz.json` is *not* a webpack
 entry point — it is ignored, and the package ships with an empty `css` content field, so the
@@ -131,18 +131,51 @@ real edge cases, so that one stays.
   data reduction of 30000 rows (there was none, so the host applied its own cap).
 - Deleted `dependencies.json` and the vendored `.api/` folder.
 
+# Next time — start here
+
+Everything that could be done at the keyboard is done. The visual builds, renders, filters,
+sorts and cross-filters, and it is published. What is left needs Power BI Desktop or a browser.
+
+**1. Start the Partner Center identity verification.** <https://partner.microsoft.com/dashboard>.
+This is the only multi-day item; nothing else blocks on anything but it. Do it first, then come
+back to the rest.
+
+**2. Take a 1366×768 screenshot** of the visual in a report, with a couple of column filters
+typed in so the feature is visible. AppSource requires at least one.
+
+**3. Submit the listing.** Everything else it asks for is ready:
+
+| Field | Value |
+| --- | --- |
+| Package | `dist/TableSearch3D804BA6046746D3AED3E1E1C4BD3370.1.0.0.0.pbiviz` (rebuild with `npm run package`) |
+| Support URL | <https://github.com/francesco1119/TableSearch/issues> |
+| Privacy policy | <https://github.com/francesco1119/TableSearch/blob/main/PRIVACY.md> |
+| Terms of use | <https://github.com/francesco1119/TableSearch/blob/main/TERMS.md> |
+| Icon | `assets/icon.png`, 300×300 |
+
+Optional after that, in rough order of value:
+
+- **Tooltips** and **Context Menu** — the two optional features a table visual is most obviously
+  missing, and both are cheap.
+- **Column resizing and reordering** — the most likely first feature request.
+- **High Contrast** and **Keyboard Navigation** — accessibility, and prerequisites if you ever
+  want certification.
+- **A sample `.pbix`** — optional for listing, expected for certification.
+
 # Outstanding
 
+Known state and limitations, not a to-do list.
+
 - **Published** at <https://github.com/francesco1119/TableSearch>, branch `main`, MIT, public.
-  History starts clean at one commit; the inherited clone history survives only on the local
-  `tablesearch` and `master` branches, which were never pushed.
+  History starts clean; the inherited clone history survives only on the local `tablesearch` and
+  `master` branches, which were never pushed and can be deleted.
 
 - **`pbiviz start` cannot generate a dev certificate on this machine**: `New-SelfSignedCertificate:
   Parameter cannot be processed because the parameter name 'Subject' is ambiguous` — a Windows
   PowerShell 5.1 clash. Packaging is unaffected; only watch mode is blocked.
 - **9 optional features** flagged by the packager: Allow Interactions, Color Palette, Context
   Menu, High Contrast, Keyboard Navigation, Landing Page, Localizations, Rendering Events,
-  Tooltips.
+  Tooltips. None blocks the listing.
 
 - **Not yet built:** column resizing, column reordering, tooltips, keyboard navigation, and any
   number/date formatting beyond `toLocaleString` / `toLocaleDateString`.
