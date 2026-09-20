@@ -77,7 +77,7 @@ Two of its behaviours were outright blockers:
 
 Both were worked around before the rewrite. The rewrite removed the need for the workarounds.
 
-# State: working, published, unlisted
+# State: working, published, submitted to AppSource (in review)
 
 Verified working in Power BI Desktop on 19 Sep 2026: renders, filters per column, sorts on header
 click, cross-filters the report on row click, and the format pane applies. Published to GitHub.
@@ -133,25 +133,26 @@ real edge cases, so that one stays.
 
 # Next time — start here
 
-Everything that could be done at the keyboard is done. The visual builds, renders, filters,
-sorts and cross-filters, and it is published. What is left needs Power BI Desktop or a browser.
+**The offer was submitted to AppSource on 20 Sep 2026** (Partner Center → Marketplace offers →
+TableSearch, offer type Power BI visual, free, all 242 markets, certification *not* requested).
+Status was *Pre-processing*; next come manual validation (up to 15 business days) and final
+publish. Microsoft emails at each step. Nothing to do until one arrives.
 
-**1. Start the Partner Center identity verification.** <https://partner.microsoft.com/dashboard>.
-This is the only multi-day item; nothing else blocks on anything but it. Do it first, then come
-back to the rest.
-
-**2. Take a 1366×768 screenshot** of the visual in a report, with a couple of column filters
-typed in so the feature is visible. AppSource requires at least one.
-
-**3. Submit the listing.** Everything else it asks for is ready:
+What the submission used:
 
 | Field | Value |
 | --- | --- |
-| Package | `dist/TableSearch3D804BA6046746D3AED3E1E1C4BD3370.1.0.0.0.pbiviz` (rebuild with `npm run package`) |
+| Package | `dist/TableSearch3D804BA6046746D3AED3E1E1C4BD3370.1.0.0.0.pbiviz` (rebuild with `npm run package`; run `npm install` first on a fresh machine) |
+| Sample report | `sample.pbix` (Financial Sample data, visual on a page). **Partner Center requires it** — not optional, and it is not in the repo |
+| Screenshots | `assets/screenshot-1.png`, `screenshot-2.png` — Partner Center wants exactly 1366×768 PNG, filename alphanumeric/dash/underscore only |
 | Support URL | <https://github.com/francesco1119/TableSearch/issues> |
 | Privacy policy | <https://github.com/francesco1119/TableSearch/blob/main/PRIVACY.md> |
-| Terms of use | <https://github.com/francesco1119/TableSearch/blob/main/TERMS.md> |
+| Terms of use (EULA) | <https://github.com/francesco1119/TableSearch/blob/main/TERMS.md> |
 | Icon | `assets/icon.png`, 300×300 |
+
+If validation rejects it, fix, then resubmit from the same offer: **Technical configuration**
+takes the new `.pbiviz`, and *Notes for certification* are not saved between submissions, so
+re-enter them.
 
 Optional after that, in rough order of value:
 
@@ -160,7 +161,6 @@ Optional after that, in rough order of value:
 - **Column resizing and reordering** — the most likely first feature request.
 - **High Contrast** and **Keyboard Navigation** — accessibility, and prerequisites if you ever
   want certification.
-- **A sample `.pbix`** — optional for listing, expected for certification.
 
 # Outstanding
 
