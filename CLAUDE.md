@@ -182,9 +182,7 @@ Known state and limitations, not a to-do list.
 
 # Where this came from
 
-The user's report is at
-`C:\Users\FrancescoMantovani\OneDrive - beqom corporate\Documents\beqom documentation\Power BI\FinOps Old\Services`
-(see its own `CLAUDE.md`). The driving requirement was an *Accelarate* page needing a searchable,
+The user's report is a private Power BI report kept outside this repo. The driving requirement was an *Accelarate* page needing a searchable,
 filterable database list that cross-filters the page — which native Power BI slicers cannot do,
 because a slicer renders the full domain of its column and is **not** narrowed by another visual's
 selection, even with `Edit interactions → Filter` set. A plain table visual is narrowed, which is
@@ -194,6 +192,6 @@ the interim fix there.
 cross-filtering table, but **cannot put a filter widget under each column header**: Vega's bound
 inputs are an HTML form that vega-embed appends *after* the chart, and placement is not a spec
 property. On a tall table they land thousands of pixels below the rows. A working three-search-box
-Deneb spec is saved at `…\Services\deneb-spec.json`.
+Deneb spec exists alongside that report.
 
 That limitation is the reason TableSearch is worth building.
