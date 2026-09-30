@@ -16,8 +16,8 @@
 import powerbi from 'powerbi-visuals-api';
 import { FormattingSettingsService } from 'powerbi-visuals-utils-formattingmodel';
 
-import { IAppearance, ISortState, ITableColumn, SearchTable } from './table';
-import { TableSearchSettings } from './settings';
+import { IAppearance, ICellStyle, ISortState, ITableColumn, SearchTable } from './table';
+import { IColumnTarget, TableSearchSettings } from './settings';
 import '../style/style.less';
 
 import IVisual = powerbi.extensibility.visual.IVisual;
@@ -35,7 +35,34 @@ interface IExtracted {
     columns: ITableColumn[];
     rows: unknown[][];
     ids: ISelectionId[];
+    /** One selection id per column, scoped by queryName — what the fx rule editor selects on. */
+    columnIds: ISelectionId[];
     sort: ISortState | null;
+    styles: (ICellStyle | null)[][] | null;
+}
+
+/** Pulls a colour out of a `fill` property, whether the host resolved it or left it unset. */
+function fillColor(value: unknown): string | undefined {
+    const solid = (value as { solid?: { color?: unknown } } | undefined)?.solid;
+    const color = solid && solid.color;
+    return typeof color === "string" && color !== "" ? color : undefined;
+}
+
+/**
+ * Reads the `cellElements` colours off one set of object instances.
+ *
+ * The host puts them in two different places: a plain colour lands on the metadata column, a
+ * rule (the *fx* button) is resolved per row and lands on `DataViewTableRow.objects`. Both
+ * arrive in this shape, so the same reader serves both.
+ */
+function readCellStyle(objects: powerbi.DataViewObjects | undefined): ICellStyle | null {
+    const cell = objects && objects.cellElements;
+    if (!cell) {
+        return null;
+    }
+    const background = fillColor(cell.backgroundColor);
+    const color = fillColor(cell.fontColor);
+    return background || color ? { background, color } : null;
 }
 
 export class TableSearchVisual implements IVisual {
@@ -48,6 +75,9 @@ export class TableSearchVisual implements IVisual {
 
     /** Row index -> selection id, rebuilt on every extract. */
     private ids: ISelectionId[] = [];
+
+    /** Column position (matching `columns` passed to the table) -> selection id, rebuilt on every extract. */
+    private columnIds: ISelectionId[] = [];
 
     /** Guards the table's selection callback while a report-driven selection is being applied. */
     private applyingSelection = false;
@@ -65,6 +95,8 @@ export class TableSearchVisual implements IVisual {
 
         this.table = new SearchTable(this.container, {
             onSelectionChanged: (indices) => this.onTableSelection(indices),
+            onColumnContextMenu: (column, x, y) => this.onColumnContextMenu(column, x, y),
+            onRowContextMenu: (row, x, y) => this.onRowContextMenu(row, x, y),
         });
         this.table.setAppearance(this.appearance());
 
@@ -93,14 +125,18 @@ export class TableSearchVisual implements IVisual {
             TableSearchSettings,
             dataView
         );
+        // The Cell elements card is per column, so it can only be built once the field well is
+        // known. Rebuilt every update because that field well can change.
+        this.settings.cellElements.setColumns(this.formatTargets(table));
         this.table.setAppearance(this.appearance());
 
         this.waitingForMoreData = false;
 
-        const { columns, rows, ids, sort } = this.extract(table);
+        const { columns, rows, ids, columnIds, sort, styles } = this.extract(table);
         this.ids = ids;
+        this.columnIds = columnIds;
 
-        this.table.setData(columns, rows);
+        this.table.setData(columns, rows, styles);
         this.table.setSort(sort);
         this.table.layout();
         this.restoreSelection();
@@ -155,6 +191,16 @@ export class TableSearchVisual implements IVisual {
             this.host.createSelectionIdBuilder().withTable(table, rowIndex).createSelectionId()
         );
 
+        // `withMeasure` scopes the id to the column's queryName, matching the `selector: {
+        // metadata: queryName }` the Cell elements card uses — that agreement is what makes the
+        // context menu offer conditional formatting for the right column.
+        const columnIds = table.columns.map((d) =>
+            this.host
+                .createSelectionIdBuilder()
+                .withMeasure(d.queryName || d.displayName)
+                .createSelectionId()
+        );
+
         // Power BI allows several sort columns; the table sorts by one, so the primary wins.
         const sorted = table.columns
             .filter((d) => d.sort)
@@ -167,7 +213,68 @@ export class TableSearchVisual implements IVisual {
               }
             : null;
 
-        return { columns, rows, ids, sort };
+        return { columns, rows, ids, columnIds, sort, styles: this.extractStyles(table, columns) };
+    }
+
+    /** One entry per field-well column, carrying whatever colour is already set on it. */
+    private formatTargets(table: DataViewTable): IColumnTarget[] {
+        return table.columns.map((column) => {
+            const style = readCellStyle(column.objects);
+            return {
+                displayName: column.displayName,
+                queryName: column.queryName || column.displayName,
+                background: style ? style.background : undefined,
+                fontColor: style ? style.color : undefined,
+            };
+        });
+    }
+
+    /**
+     * Conditional-formatting colours per cell, indexed to match `columns`.
+     *
+     * Returns null when nothing is formatted -- the overwhelmingly common case -- so the table can
+     * skip the per-cell lookup entirely.
+     */
+    private extractStyles(
+        table: DataViewTable,
+        columns: ITableColumn[]
+    ): (ICellStyle | null)[][] | null {
+        const perColumn = new Map<number, ICellStyle>();
+        table.columns.forEach((column) => {
+            const style = readCellStyle(column.objects);
+            if (style && column.index !== undefined) {
+                perColumn.set(column.index, style);
+            }
+        });
+
+        const rows = table.rows || [];
+        const anyRuleApplied = rows.some((row) => !!row.objects);
+        if (!anyRuleApplied && perColumn.size === 0) {
+            return null;
+        }
+
+        return rows.map((row) =>
+            columns.map((column) => {
+                const fromRule = row.objects && readCellStyle(row.objects[column.index]);
+                return fromRule || perColumn.get(column.index) || null;
+            })
+        );
+    }
+
+    /** Right-click on a column header: the host's own menu, including conditional formatting. */
+    private onColumnContextMenu(column: number, x: number, y: number): void {
+        const id = this.columnIds[column];
+        if (id) {
+            void this.selectionManager.showContextMenu(id, { x, y });
+        }
+    }
+
+    /** Right-click on a row: the host's own menu (filter, drillthrough, ...) for that data point. */
+    private onRowContextMenu(row: number, x: number, y: number): void {
+        const id = this.ids[row];
+        if (id) {
+            void this.selectionManager.showContextMenu(id, { x, y });
+        }
     }
 
     /** Pushes the table's own selection out to the rest of the report. */

@@ -23,6 +23,13 @@ export interface ITableColumn {
 
 export type SortDirection = 'asc' | 'desc';
 
+export interface ICellStyle {
+    /** Resolved background colour, or undefined to leave the row shading alone. */
+    background?: string;
+    /** Resolved font colour. */
+    color?: string;
+}
+
 export interface ISortState {
     column: number;
     direction: SortDirection;
@@ -64,6 +71,10 @@ export interface IAppearance {
 export interface ITableCallbacks {
     /** Fired when the user changes the row selection, with indices into the unfiltered rows. */
     onSelectionChanged(indices: number[]): void;
+    /** Right-click on a column header, e.g. to reach that column's conditional formatting. */
+    onColumnContextMenu(column: number, x: number, y: number): void;
+    /** Right-click on a row, with the unfiltered row index. */
+    onRowContextMenu(row: number, x: number, y: number): void;
 }
 
 type Row = unknown[];
@@ -134,6 +145,18 @@ export class SearchTable {
     private columns: ITableColumn[] = [];
     private rows: Row[] = [];
 
+    /** Display order, as positions into `columns`. Reset to identity whenever the column set changes. */
+    private order: number[] = [];
+    /** Column index (into `columns`) currently being dragged, while a header drag is in progress. */
+    private dragColumn: number | null = null;
+
+    /**
+     * Conditional-formatting colours, indexed [row index][column position] to match `columns`
+     * rather than the raw row arrays. `null` throughout means nothing is formatted, which is the
+     * common case and skips the lookup entirely.
+     */
+    private cellStyles: (ICellStyle | null)[][] | null = null;
+
     /** Filter text per column index, lower-cased. Absent or '' means no filter on that column. */
     private readonly filters = new Map<number, string>();
     private sort: ISortState | null = null;
@@ -185,6 +208,7 @@ export class SearchTable {
         });
 
         this.body.addEventListener('click', (evt) => this.onBodyClick(evt));
+        this.body.addEventListener('contextmenu', (evt) => this.onBodyContextMenu(evt));
     }
 
     /**
@@ -193,19 +217,25 @@ export class SearchTable {
      * Filters are keyed by column index and survive a row-only refresh, which is what makes the
      * table usable while a slicer elsewhere on the page is being adjusted.
      */
-    public setData(columns: ITableColumn[], rows: Row[]): void {
+    public setData(
+        columns: ITableColumn[],
+        rows: Row[],
+        cellStyles?: (ICellStyle | null)[][] | null
+    ): void {
         const columnsChanged =
             columns.length !== this.columns.length ||
             columns.some((c, i) => this.columns[i].label !== c.label || this.columns[i].type !== c.type);
 
         this.columns = columns;
         this.rows = rows;
+        this.cellStyles = cellStyles || null;
 
         if (columnsChanged) {
             this.filters.clear();
             if (this.sort && this.sort.column >= columns.length) {
                 this.sort = null;
             }
+            this.order = columns.map((_, i) => i);
             this.buildHeader();
         }
 
@@ -274,13 +304,15 @@ export class SearchTable {
         this.filterInputs.clear();
         this.sortIndicators.clear();
 
-        this.columns.forEach((column, i) => {
+        this.order.forEach((i) => {
+            const column = this.columns[i];
             const th = document.createElement('div');
             th.className = 'ts-th';
 
             const label = document.createElement('div');
             label.className = 'ts-th-label';
-            label.title = `${column.label} — click to sort`;
+            label.title = `${column.label} — click to sort, drag to reorder`;
+            label.draggable = true;
 
             const text = document.createElement('span');
             text.className = 'ts-th-text';
@@ -293,6 +325,41 @@ export class SearchTable {
             this.sortIndicators.set(i, indicator);
 
             label.addEventListener('click', () => this.toggleSort(i));
+            label.addEventListener('dragstart', (evt) => {
+                this.dragColumn = i;
+                th.classList.add('ts-dragging');
+                if (evt.dataTransfer) {
+                    evt.dataTransfer.effectAllowed = 'move';
+                    evt.dataTransfer.setData('text/plain', String(i));
+                }
+            });
+            label.addEventListener('dragend', () => {
+                th.classList.remove('ts-dragging');
+                this.dragColumn = null;
+            });
+
+            th.addEventListener('dragover', (evt) => {
+                if (this.dragColumn === null || this.dragColumn === i) {
+                    return;
+                }
+                evt.preventDefault();
+                if (evt.dataTransfer) {
+                    evt.dataTransfer.dropEffect = 'move';
+                }
+                th.classList.add('ts-drop-target');
+            });
+            th.addEventListener('dragleave', () => th.classList.remove('ts-drop-target'));
+            th.addEventListener('drop', (evt) => {
+                evt.preventDefault();
+                th.classList.remove('ts-drop-target');
+                if (this.dragColumn !== null && this.dragColumn !== i) {
+                    this.moveColumn(this.dragColumn, i);
+                }
+            });
+            th.addEventListener('contextmenu', (evt) => {
+                evt.preventDefault();
+                this.callbacks.onColumnContextMenu(i, evt.clientX, evt.clientY);
+            });
 
             const filter = document.createElement('input');
             filter.type = 'text';
@@ -348,6 +415,19 @@ export class SearchTable {
         Array.from(this.headRow.children).forEach((th) => {
             (th as HTMLElement).style.width = `${this.columnWidth}px`;
         });
+    }
+
+    /** Moves column `source` to sit where `target` currently is, and repaints. */
+    private moveColumn(source: number, target: number): void {
+        const from = this.order.indexOf(source);
+        const to = this.order.indexOf(target);
+        if (from < 0 || to < 0 || from === to) {
+            return;
+        }
+        this.order.splice(from, 1);
+        this.order.splice(to, 0, source);
+        this.buildHeader();
+        this.renderBody();
     }
 
     private toggleSort(column: number): void {
@@ -486,9 +566,19 @@ export class SearchTable {
                 tr.classList.add('ts-selected');
             }
 
-            this.columns.forEach((column) => {
-                const td = document.createElement('div');
-                td.className = 'ts-cell';
+            this.order.forEach((position) => {
+                const column = this.columns[position];
+                const td = document.createElement("div");
+                td.className = "ts-cell";
+                const style = this.cellStyles && this.cellStyles[rowIndex] && this.cellStyles[rowIndex][position];
+                if (style) {
+                    if (style.background) {
+                        td.style.backgroundColor = style.background;
+                    }
+                    if (style.color) {
+                        td.style.color = style.color;
+                    }
+                }
                 td.style.width = `${this.columnWidth}px`;
                 const text = formatValue(row[column.index], column.type);
                 if (text === '') {
@@ -537,5 +627,14 @@ export class SearchTable {
 
         this.renderBody();
         this.callbacks.onSelectionChanged(Array.from(this.selected));
+    }
+
+    private onBodyContextMenu(evt: MouseEvent): void {
+        const target = (evt.target as HTMLElement).closest('.ts-row') as HTMLElement | null;
+        evt.preventDefault();
+        if (!target) {
+            return;
+        }
+        this.callbacks.onRowContextMenu(Number(target.dataset.row), evt.clientX, evt.clientY);
     }
 }

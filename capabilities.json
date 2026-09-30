@@ -39,6 +39,19 @@
                 }
             }
         },
+        "cellElements": {
+            "displayName": "Cell elements",
+            "properties": {
+                "backgroundColor": {
+                    "displayName": "Background color",
+                    "type": { "fill": { "solid": { "color": true } } }
+                },
+                "fontColor": {
+                    "displayName": "Font color",
+                    "type": { "fill": { "solid": { "color": true } } }
+                }
+            }
+        },
         "colors": {
             "displayName": "Colors",
             "properties": {
