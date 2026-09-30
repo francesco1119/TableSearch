@@ -25,7 +25,7 @@ AppSource so it can be installed from Power BI's *Get more visuals*.
 | Visual GUID | `TableSearch3D804BA6046746D3AED3E1E1C4BD3370` |
 | Visual class | `TableSearchVisual` (`src/visual.ts`) |
 | Settings class | `TableSearchSettings` (`src/settings.ts`) |
-| Artifact | `dist/TableSearch3D804BA6046746D3AED3E1E1C4BD3370.1.1.0.0.pbiviz` |
+| Artifact | `dist/TableSearch3D804BA6046746D3AED3E1E1C4BD3370.1.3.1.0.pbiviz` |
 
 ⚠️ **The GUID is permanent.** `pbiviz` derives the output filename from `guid` + `version`, and
 Power BI binds reports to the GUID. Changing it after release breaks every report already using the
@@ -94,26 +94,45 @@ Three source files, no framework.
 
 - **`src/table.ts`** — the whole widget. Header of label + filter box per column, click-to-sort
   (asc → desc → none), case-insensitive *contains* filter per column, virtualised body, click and
-  ctrl-click row selection, drag-a-header to reorder columns, right-click for a context menu.
-  Structural rule: **filtering and sorting repaint only the body, never the header**, which is
-  what made LineUp's version unusable. Column order is a separate `order: number[]` permutation
-  over `columns`/filters/sort, so dragging never disturbs which column a filter or sort is bound
-  to — those stay indexed to `columns`, not to display position.
+  ctrl-click row selection, drag-a-header to reorder columns, right-click for a context menu,
+  default tooltips on row hover, arrow-key/Enter row navigation, and a totals row. Structural
+  rule: **filtering and sorting repaint only the body, never the header**, which is what made
+  LineUp's version unusable. Column order is a separate `order: number[]` permutation over
+  `columns`/filters/sort, so dragging never disturbs which column a filter or sort is bound to —
+  those stay indexed to `columns`, not to display position. A cell honours the model's format
+  string (currency, percent, custom date formats) via `powerbi-visuals-utils-formattingutils`'
+  `valueFormatter`, one instance per column cached in a `WeakMap` keyed by the column object so it
+  invalidates automatically when the field well changes. A column tagged Web URL renders as a
+  link (or, with "Show links as icon" on, a small inline SVG chain icon, built via
+  `createElementNS` rather than `innerHTML` — the certification-relevant
+  `powerbi-visuals/no-inner-outer-html` lint rule rejects the latter even for a static string);
+  Image URL renders as an `<img>` thumbnail — the one feature that fetches an external resource
+  per cell, worth calling out explicitly in certification notes. Column widths: `columnWidths` is
+  the natural width per column — auto-fit (from a canvas-measured header label and a 200-row value
+  sample, special-cased small for an icon-mode URL column or an image column) unless the user has
+  dragged that column, in which case it's pinned in `manualWidths` keyed by label so it survives a
+  data refresh. `renderWidths`, recomputed on every layout, is `columnWidths` with any leftover
+  container width stretched proportionally across the non-manual columns, so the table fills the
+  visual instead of leaving a bare gap; a manually-sized column never stretches.
 - **`src/visual.ts`** — Power BI only. Selection IDs via
   `createSelectionIdBuilder().withTable(table, i)`, two-way cross-filtering with an
   `applyingSelection` guard, `fetchMoreData` paging against `dataView.metadata.segment`,
-  field-well sort, a resize fast-path that skips re-extraction, and a context-menu bridge:
-  right-click on a row calls `showContextMenu` with that row's selection id, right-click on a
-  column header with an id built via `withMeasure(queryName)` — the same `queryName` the Cell
-  elements card selects on, so the host's menu offers conditional formatting for that column.
+  field-well sort, a resize fast-path that skips re-extraction, a context-menu bridge (right-click
+  on a row calls `showContextMenu` with that row's selection id, right-click on a column header
+  with an id built via `withMeasure(queryName)` — the same `queryName` the Cell elements card
+  selects on, so the host's menu offers conditional formatting for that column), and a tooltip
+  bridge (`host.tooltipService.show`/`.move`/`.hide`, tracking the hovered row so a second move
+  within the same row repositions instead of re-showing).
 - **`src/settings.ts`** — the format pane, via `powerbi-visuals-utils-formattingmodel`. Four
-  cards: Table (row height, text size, alternate shading), Column search (show/hide), Cell
-  elements (per-column background/font colour, with the *fx* rule editor via
-  `instanceKind: ConstantOrRule` — the only way to reach conditional formatting, since the field
-  well's own right-click menu is hardcoded to native visuals and never offers it to custom ones),
-  Colors (header, text, grid, selected row). Every `name` here must match an entry under `objects`
-  in `capabilities.json` exactly, or the pane drops the slice without complaint. Colours and text
-  size reach the table as CSS custom properties, so a change restyles it without touching DOM.
+  cards: Table (row height, text size, alternate shading, show totals row, show links as icon —
+  column widths themselves are not a format-pane setting; they live only in the table's own
+  drag-to-resize state), Column search (show/hide), Cell elements (per-column background/font colour, with the *fx* rule
+  editor via `instanceKind: ConstantOrRule` — the only way to reach conditional formatting, since
+  the field well's own right-click menu is hardcoded to native visuals and never offers it to
+  custom ones), Colors (header, text, grid, selected row). Every `name` here must match an entry
+  under `objects` in `capabilities.json` exactly, or the pane drops the slice without complaint.
+  Colours and text size reach the table as CSS custom properties, so a change restyles it without
+  touching DOM.
 
 ## Toolchain
 
@@ -124,10 +143,16 @@ repo root on every build.
 API 1.10 / tools 2.1 → **API 5.11 / tools 7.2.1**. Installed with **npm** (yarn 1 cannot extract
 the old tarballs and is not used here).
 
-Runtime dependency: **`@tanstack/virtual-core`** only. `@tanstack/table-core` was installed and
+Runtime dependencies: **`@tanstack/virtual-core`**. `@tanstack/table-core` was installed and
 then removed — npm resolves it to v9, whose API is still in flux, and sorting plus substring
 filtering over an array is thirty lines worth owning outright. Virtualisation is the part with
-real edge cases, so that one stays.
+real edge cases, so that one stays. Also **`powerbi-visuals-utils-formattingutils`, pinned to
+`6.1.2`** — for `valueFormatter` (format-string-aware cell formatting). **Do not bump this past
+6.x**: 7.0.0 ships pure ESM (`export {...}`), and tools 7.2.1's locale-trimming webpack loader
+(`localizationLoader.js`, wired in `WebPackWrap.js` against any file named
+`powerbiGlobalizeLocales.js`) `eval()`s that file expecting CommonJS — packaging fails with
+`SyntaxError: Unexpected token 'export'` on 7.0.0. 6.1.2 is the last CJS release and works with
+that loader as-is.
 
 - `pbiviz.json` — `apiVersion` 5.11.0. **`externalJS` removed** (gone in tools 3+), `dependencies`
   removed. `supportUrl` is set to the real GitHub issues URL (it started as a placeholder pbiviz
@@ -136,9 +161,25 @@ real edge cases, so that one stays.
   **`strictNullChecks` must stay `false`**: the tool-generated `.tmp/precompile/visualPlugin.ts`
   passes `VisualConstructorOptions | undefined` into the constructor and will not compile otherwise.
   Microsoft's own templates do the same.
-- `capabilities.json` — added `privileges: []` and `supportsMultiVisualSelection`, plus a `window`
-  data reduction of 30000 rows (there was none, so the host applied its own cap).
+- `capabilities.json` — added `privileges: []`, `supportsMultiVisualSelection`, and
+  `supportsKeyboardFocus`, plus a `window` data reduction of 30000 rows (there was none, so the
+  host applied its own cap). Also a `tooltips` block (`supportedTypes: { default, canvas }`) so
+  report authors can assign a custom tooltip page, and **`roles` must be present, even as `[]`**
+  — omitting it crashed Power BI Desktop's own authoring UI (`Cannot read properties of undefined
+  (reading 'map')` in `desktop.ExploreUIAuthoring.min.js`, right after `AddFieldInRole` /
+  `SaveFormattingValues`) — its field-well code unconditionally maps over `tooltips.roles`.
 - Deleted `dependencies.json` and the vendored `.api/` folder.
+
+**Format pane note:** `TableSearchSettings` is rebuilt from scratch on every `update()` (the
+documented pattern, needed so a pane edit takes effect) — Power BI Desktop appears to key each
+card's expanded/collapsed state to that model instance, so a second `update()` a couple of
+seconds after load (e.g. a `fetchMoreData` page arriving) can visibly collapse an expanded format
+pane back to its default state. Cosmetic, not a bug to chase.
+
+**First-import visual-conversion note:** converting an existing native Table visual into
+TableSearch briefly shows the *native* Table's format pane (Style presets, Layout, Grid, Totals,
+Sparklines, ...) while the plugin loads, before swapping to TableSearch's own pane. That's Power
+BI Desktop's own transition UI, not a TableSearch bug — don't chase it if seen again.
 
 # Next time — start here
 
@@ -166,7 +207,7 @@ What the submission used, for when all three are resolved and it's time to resub
 
 | Field | Value |
 | --- | --- |
-| Package | `dist/TableSearch3D804BA6046746D3AED3E1E1C4BD3370.1.1.0.0.pbiviz` (rebuild with `npm run package`; run `npm install` first on a fresh machine) |
+| Package | `dist/TableSearch3D804BA6046746D3AED3E1E1C4BD3370.1.3.1.0.pbiviz` (rebuild with `npm run package`; run `npm install` first on a fresh machine) |
 | Sample report | `sample.pbix` (Financial Sample data, visual on a page). **Partner Center requires it** — not optional, and it is not in the repo. Built from `Sample/` (PBIP), not yet exported |
 | Screenshots | `assets/screenshot-1.png`, `screenshot-2.png` — Partner Center wants exactly 1366×768 PNG, filename alphanumeric/dash/underscore only |
 | Support URL | <https://github.com/francesco1119/TableSearch/issues> |
@@ -177,14 +218,17 @@ What the submission used, for when all three are resolved and it's time to resub
 Resubmit from the same offer: **Technical configuration** takes the new `.pbiviz` — Partner Center
 only reads the version baked into the uploaded package, so editing `pbiviz.json` alone does nothing
 there until you rebuild and re-upload. *Notes for certification* are not saved between
-submissions, so re-enter them.
+submissions, so re-enter them. **Call out Image URL rendering explicitly in the certification
+notes** — it fetches an external image per cell, which a reviewer could read as violating "no
+network calls", even though the native Table/Matrix visuals do the same thing for that data
+category. Packaged as **v1.3.1.0** (also since verified: format strings, totals row, Image/Web
+URL rendering, tooltips, keyboard navigation, column resizing — see "The code" above). Not yet
+retested end-to-end in Power BI Desktop against a real report for a full pass — do that before
+resubmitting.
 
-Optional after that, in rough order of value:
+Optional after that:
 
-- **Tooltips** — the one optional feature a table visual is most obviously missing, and cheap.
-- **Column resizing** — the most likely first feature request (reordering is done).
-- **High Contrast** and **Keyboard Navigation** — accessibility, and prerequisites if you ever
-  want certification.
+- **High Contrast** — the one remaining accessibility item, and a prerequisite for certification.
 
 # Outstanding
 
@@ -197,12 +241,15 @@ Known state and limitations, not a to-do list.
 - **`pbiviz start` cannot generate a dev certificate on this machine**: `New-SelfSignedCertificate:
   Parameter cannot be processed because the parameter name 'Subject' is ambiguous` — a Windows
   PowerShell 5.1 clash. Packaging is unaffected; only watch mode is blocked.
-- **8 optional features** flagged by the packager: Allow Interactions, Color Palette, High
-  Contrast, Keyboard Navigation, Landing Page, Localizations, Rendering Events, Tooltips (Context
-  Menu is now implemented and no longer flagged). None blocks the listing.
+- **7 optional features** flagged by the packager: Allow Interactions, Color Palette, High
+  Contrast, Highlight Data, Landing Page, Localizations, Rendering Events (Context Menu, Tooltips
+  and Keyboard Navigation are now implemented and no longer flagged; Highlight Data is flagged
+  only because `supportsHighlight` is deliberately absent — see the filter-in fix above). None
+  blocks the listing.
 
-- **Not yet built:** column resizing, tooltips, keyboard navigation, and any number/date
-  formatting beyond `toLocaleString` / `toLocaleDateString`.
+- **Not yet built:** High Contrast mode, column-level choice of aggregate for the totals row
+  (currently always Sum), and tooltips/context-menu/keyboard-nav polish beyond the default/generic
+  behaviour already wired up.
 
 # Where this came from
 

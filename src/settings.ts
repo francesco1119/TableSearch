@@ -15,6 +15,8 @@ export const DEFAULTS = {
     rowHeight: 24,
     fontSize: 12,
     alternateRows: false,
+    showTotals: false,
+    linkIcon: false,
     showSearch: true,
     headerBackground: '#FAF9F8',
     textColor: '#252423',
@@ -44,7 +46,19 @@ class TableCard extends Card {
         value: DEFAULTS.alternateRows,
     });
 
-    slices = [this.rowHeight, this.fontSize, this.alternateRows];
+    showTotals = new formattingSettings.ToggleSwitch({
+        name: 'showTotals',
+        displayName: 'Show totals row',
+        value: DEFAULTS.showTotals,
+    });
+
+    linkIcon = new formattingSettings.ToggleSwitch({
+        name: 'linkIcon',
+        displayName: 'Show links as icon',
+        value: DEFAULTS.linkIcon,
+    });
+
+    slices = [this.rowHeight, this.fontSize, this.alternateRows, this.showTotals, this.linkIcon];
 }
 
 class SearchCard extends Card {

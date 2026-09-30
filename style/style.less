@@ -57,6 +57,7 @@
 }
 
 .ts-th {
+  position: relative;
   flex: 0 0 auto;
   box-sizing: border-box;
   padding: 4px 6px 6px;
@@ -72,6 +73,22 @@
 
   &.ts-drop-target {
     box-shadow: inset 2px 0 0 @focus;
+  }
+}
+
+/* Drag the right edge to resize; double-click to snap back to auto-fit. */
+.ts-th-resize {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  touch-action: none;
+  z-index: 1;
+
+  &:hover {
+    background: fade(@focus, 40%);
   }
 }
 
@@ -129,6 +146,29 @@
   overflow: auto;
 }
 
+/* Sums for numeric columns over the current (filtered) rows. Outside the scroll container, like
+ * the header, so it stays pinned at the bottom. */
+.ts-foot {
+  flex: 0 0 auto;
+  overflow: hidden;
+  background: var(--ts-header-bg, @header-bg);
+  border-top: 1px solid @border-strong;
+}
+
+.ts-foot-row {
+  display: flex;
+}
+
+.ts-foot-cell {
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  padding: 4px 6px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /*
  * Holds the full scroll height while only the visible rows exist in the DOM. Rows are placed
  * on it absolutely, at the offset the virtualiser reports.
@@ -157,6 +197,11 @@
   &.ts-selected {
     background: var(--ts-selected, @row-selected);
   }
+
+  &.ts-focused {
+    outline: 2px solid @focus;
+    outline-offset: -2px;
+  }
 }
 
 .ts-cell {
@@ -166,6 +211,29 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.ts-image {
+  max-width: 100%;
+  display: block;
+}
+
+.ts-link {
+  color: @focus;
+  text-decoration: underline;
+
+  &:hover {
+    text-decoration: none;
+  }
+
+  &.ts-link-icon {
+    display: inline-flex;
+    text-decoration: none;
+
+    &:hover {
+      color: darken(@focus, 10%);
+    }
+  }
 }
 
 /* A blank value reads as a dash rather than as a cell that failed to render. */

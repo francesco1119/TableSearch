@@ -27,6 +27,14 @@
                 "alternateRows": {
                     "displayName": "Alternate row shading",
                     "type": { "bool": true }
+                },
+                "showTotals": {
+                    "displayName": "Show totals row",
+                    "type": { "bool": true }
+                },
+                "linkIcon": {
+                    "displayName": "Show links as icon",
+                    "type": { "bool": true }
                 }
             }
         },
@@ -75,7 +83,12 @@
         }
     },
     "supportsMultiVisualSelection": true,
+    "supportsKeyboardFocus": true,
     "advancedEditModeSupport": 2,
+    "tooltips": {
+        "supportedTypes": { "default": true, "canvas": true },
+        "roles": []
+    },
     "sorting": {
         "custom": {}
     },

@@ -85,6 +85,10 @@ export class TableSearchVisual implements IVisual {
     /** Set while a `fetchMoreData` request is outstanding. */
     private waitingForMoreData = false;
 
+    /** Row currently under the pointer, so a further move can `move()` the tooltip instead of
+     *  re-`show()`-ing it. */
+    private hoveredRow: number | null = null;
+
     constructor(options: VisualConstructorOptions) {
         this.host = options.host;
         this.selectionManager = options.host.createSelectionManager();
@@ -97,7 +101,10 @@ export class TableSearchVisual implements IVisual {
             onSelectionChanged: (indices) => this.onTableSelection(indices),
             onColumnContextMenu: (column, x, y) => this.onColumnContextMenu(column, x, y),
             onRowContextMenu: (row, x, y) => this.onRowContextMenu(row, x, y),
+            onRowHover: (row, items, x, y) => this.onRowHover(row, items, x, y),
+            onRowHoverEnd: () => this.onRowHoverEnd(),
         });
+        this.table.setLocale(this.host.locale);
         this.table.setAppearance(this.appearance());
 
         // Power BI can clear or change the selection from outside the visual — another visual's
@@ -156,6 +163,8 @@ export class TableSearchVisual implements IVisual {
             rowHeight: table.rowHeight.value,
             fontSize: table.fontSize.value,
             alternateRows: table.alternateRows.value,
+            showTotals: table.showTotals.value,
+            linkIcon: table.linkIcon.value,
             showSearch: search.show.value,
             headerBackground: colors.headerBackground.value.value,
             textColor: colors.textColor.value.value,
@@ -184,7 +193,9 @@ export class TableSearchVisual implements IVisual {
                     type = 'date';
                 }
             }
-            return { label: d.displayName, index: d.index!, type };
+            const isUrl = !!(d.type && d.type.misc && d.type.misc.webUrl);
+            const isImage = !!(d.type && d.type.misc && d.type.misc.imageUrl);
+            return { label: d.displayName, index: d.index!, type, isUrl, isImage, format: d.format };
         });
 
         const ids = rows.map((_, rowIndex) =>
@@ -275,6 +286,30 @@ export class TableSearchVisual implements IVisual {
         if (id) {
             void this.selectionManager.showContextMenu(id, { x, y });
         }
+    }
+
+    /** Pointer over a row: the host's default tooltip, one line per column. */
+    private onRowHover(row: number, items: { displayName: string; value: string }[], x: number, y: number): void {
+        const id = this.ids[row];
+        if (!id) {
+            return;
+        }
+        const options = { coordinates: [x, y], isTouchEvent: false, dataItems: items, identities: [id] };
+        if (this.hoveredRow === row) {
+            this.host.tooltipService.move(options);
+        } else {
+            this.hoveredRow = row;
+            this.host.tooltipService.show(options);
+        }
+    }
+
+    /** Pointer left the body: dismiss the tooltip. */
+    private onRowHoverEnd(): void {
+        if (this.hoveredRow === null) {
+            return;
+        }
+        this.hoveredRow = null;
+        this.host.tooltipService.hide({ isTouchEvent: false, immediately: true });
     }
 
     /** Pushes the table's own selection out to the rest of the report. */
