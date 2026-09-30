@@ -25,7 +25,7 @@ AppSource so it can be installed from Power BI's *Get more visuals*.
 | Visual GUID | `TableSearch3D804BA6046746D3AED3E1E1C4BD3370` |
 | Visual class | `TableSearchVisual` (`src/visual.ts`) |
 | Settings class | `TableSearchSettings` (`src/settings.ts`) |
-| Artifact | `dist/TableSearch3D804BA6046746D3AED3E1E1C4BD3370.1.0.0.1.pbiviz` |
+| Artifact | `dist/TableSearch3D804BA6046746D3AED3E1E1C4BD3370.1.1.0.0.pbiviz` |
 
 ⚠️ **The GUID is permanent.** `pbiviz` derives the output filename from `guid` + `version`, and
 Power BI binds reports to the GUID. Changing it after release breaks every report already using the
@@ -94,16 +94,25 @@ Three source files, no framework.
 
 - **`src/table.ts`** — the whole widget. Header of label + filter box per column, click-to-sort
   (asc → desc → none), case-insensitive *contains* filter per column, virtualised body, click and
-  ctrl-click row selection. Structural rule: **filtering and sorting repaint only the body, never
-  the header**, which is what made LineUp's version unusable.
+  ctrl-click row selection, drag-a-header to reorder columns, right-click for a context menu.
+  Structural rule: **filtering and sorting repaint only the body, never the header**, which is
+  what made LineUp's version unusable. Column order is a separate `order: number[]` permutation
+  over `columns`/filters/sort, so dragging never disturbs which column a filter or sort is bound
+  to — those stay indexed to `columns`, not to display position.
 - **`src/visual.ts`** — Power BI only. Selection IDs via
   `createSelectionIdBuilder().withTable(table, i)`, two-way cross-filtering with an
   `applyingSelection` guard, `fetchMoreData` paging against `dataView.metadata.segment`,
-  field-well sort, and a resize fast-path that skips re-extraction.
-- **`src/settings.ts`** — the format pane, via `powerbi-visuals-utils-formattingmodel`. Three
-  cards: Table (row height, text size, alternate shading), Column search (show/hide), Colors
-  (header, text, grid, selected row). Every `name` here must match an entry under `objects` in
-  `capabilities.json` exactly, or the pane drops the slice without complaint. Colours and text
+  field-well sort, a resize fast-path that skips re-extraction, and a context-menu bridge:
+  right-click on a row calls `showContextMenu` with that row's selection id, right-click on a
+  column header with an id built via `withMeasure(queryName)` — the same `queryName` the Cell
+  elements card selects on, so the host's menu offers conditional formatting for that column.
+- **`src/settings.ts`** — the format pane, via `powerbi-visuals-utils-formattingmodel`. Four
+  cards: Table (row height, text size, alternate shading), Column search (show/hide), Cell
+  elements (per-column background/font colour, with the *fx* rule editor via
+  `instanceKind: ConstantOrRule` — the only way to reach conditional formatting, since the field
+  well's own right-click menu is hardcoded to native visuals and never offers it to custom ones),
+  Colors (header, text, grid, selected row). Every `name` here must match an entry under `objects`
+  in `capabilities.json` exactly, or the pane drops the slice without complaint. Colours and text
   size reach the table as CSS custom properties, so a change restyles it without touching DOM.
 
 ## Toolchain
@@ -142,10 +151,10 @@ needed" on 24 Sep 2026** with three findings:
    host sent all rows plus a `highlights` array instead of filtered rows, and TableSearch ignores
    highlights. **Fixed**: removed `supportsHighlight` from `capabilities.json`. Packaged as
    **v1.0.0.1**. Not yet retested in Power BI Desktop — do that before resubmitting.
-2. **Context menu missing** (policy 1180.2.5, blocking) — **not yet fixed**. Needs a `contextmenu`
-   listener on the visual root calling `this.selectionManager.showContextMenu(id, { x, y })` +
-   `e.preventDefault()`, row selection id when the target is a data row else `{}`. See
-   <https://learn.microsoft.com/en-us/power-bi/developer/visuals/context-menu>.
+2. **Context menu missing** (policy 1180.2.5, blocking) — **fixed**. `table.ts` now listens for
+   `contextmenu` on header cells and body rows and calls back into `visual.ts`, which calls
+   `this.selectionManager.showContextMenu(id, { x, y })` after `e.preventDefault()`. Packaged as
+   **v1.1.0.0**. Not yet retested in Power BI Desktop.
 3. **`sample.pbix` "Unable to connect"** (policy 1180.2.3) — the submitted sample connected to a
    live source. Rebuilding with embedded data: `Sample/` now holds a PBIP project on the Financial
    Sample data with TableSearch placed on the page (it was dropped once already when the data
@@ -157,7 +166,7 @@ What the submission used, for when all three are resolved and it's time to resub
 
 | Field | Value |
 | --- | --- |
-| Package | `dist/TableSearch3D804BA6046746D3AED3E1E1C4BD3370.1.0.0.1.pbiviz` (rebuild with `npm run package`; run `npm install` first on a fresh machine) |
+| Package | `dist/TableSearch3D804BA6046746D3AED3E1E1C4BD3370.1.1.0.0.pbiviz` (rebuild with `npm run package`; run `npm install` first on a fresh machine) |
 | Sample report | `sample.pbix` (Financial Sample data, visual on a page). **Partner Center requires it** — not optional, and it is not in the repo. Built from `Sample/` (PBIP), not yet exported |
 | Screenshots | `assets/screenshot-1.png`, `screenshot-2.png` — Partner Center wants exactly 1366×768 PNG, filename alphanumeric/dash/underscore only |
 | Support URL | <https://github.com/francesco1119/TableSearch/issues> |
@@ -172,9 +181,8 @@ submissions, so re-enter them.
 
 Optional after that, in rough order of value:
 
-- **Tooltips** and **Context Menu** — the two optional features a table visual is most obviously
-  missing, and both are cheap.
-- **Column resizing and reordering** — the most likely first feature request.
+- **Tooltips** — the one optional feature a table visual is most obviously missing, and cheap.
+- **Column resizing** — the most likely first feature request (reordering is done).
 - **High Contrast** and **Keyboard Navigation** — accessibility, and prerequisites if you ever
   want certification.
 
@@ -189,12 +197,12 @@ Known state and limitations, not a to-do list.
 - **`pbiviz start` cannot generate a dev certificate on this machine**: `New-SelfSignedCertificate:
   Parameter cannot be processed because the parameter name 'Subject' is ambiguous` — a Windows
   PowerShell 5.1 clash. Packaging is unaffected; only watch mode is blocked.
-- **9 optional features** flagged by the packager: Allow Interactions, Color Palette, Context
-  Menu, High Contrast, Keyboard Navigation, Landing Page, Localizations, Rendering Events,
-  Tooltips. None blocks the listing.
+- **8 optional features** flagged by the packager: Allow Interactions, Color Palette, High
+  Contrast, Keyboard Navigation, Landing Page, Localizations, Rendering Events, Tooltips (Context
+  Menu is now implemented and no longer flagged). None blocks the listing.
 
-- **Not yet built:** column resizing, column reordering, tooltips, keyboard navigation, and any
-  number/date formatting beyond `toLocaleString` / `toLocaleDateString`.
+- **Not yet built:** column resizing, tooltips, keyboard navigation, and any number/date
+  formatting beyond `toLocaleString` / `toLocaleDateString`.
 
 # Where this came from
 
