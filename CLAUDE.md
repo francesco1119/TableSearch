@@ -25,7 +25,7 @@ AppSource so it can be installed from Power BI's *Get more visuals*.
 | Visual GUID | `TableSearch3D804BA6046746D3AED3E1E1C4BD3370` |
 | Visual class | `TableSearchVisual` (`src/visual.ts`) |
 | Settings class | `TableSearchSettings` (`src/settings.ts`) |
-| Artifact | `dist/TableSearch3D804BA6046746D3AED3E1E1C4BD3370.1.3.1.0.pbiviz` |
+| Artifact | `dist/TableSearch3D804BA6046746D3AED3E1E1C4BD3370.1.3.2.0.pbiviz` |
 
 ⚠️ **The GUID is permanent.** `pbiviz` derives the output filename from `guid` + `version`, and
 Power BI binds reports to the GUID. Changing it after release breaks every report already using the
@@ -207,7 +207,7 @@ What the submission used, for when all three are resolved and it's time to resub
 
 | Field | Value |
 | --- | --- |
-| Package | `dist/TableSearch3D804BA6046746D3AED3E1E1C4BD3370.1.3.1.0.pbiviz` (rebuild with `npm run package`; run `npm install` first on a fresh machine) |
+| Package | `dist/TableSearch3D804BA6046746D3AED3E1E1C4BD3370.1.3.2.0.pbiviz` (rebuild with `npm run package`; run `npm install` first on a fresh machine) |
 | Sample report | `sample.pbix` (Financial Sample data, visual on a page). **Partner Center requires it** — not optional, and it is not in the repo. Built from `Sample/` (PBIP), not yet exported |
 | Screenshots | `assets/screenshot-1.png`, `screenshot-2.png` — Partner Center wants exactly 1366×768 PNG, filename alphanumeric/dash/underscore only |
 | Support URL | <https://github.com/francesco1119/TableSearch/issues> |
