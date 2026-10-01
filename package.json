@@ -7,7 +7,7 @@
   "scripts": {
     "start": "pbiviz start",
     "package": "pbiviz package --no-stats",
-    "lint": "eslint src --ext .ts"
+    "lint": "eslint src"
   },
   "dependencies": {
     "@tanstack/virtual-core": "^3.17.11",

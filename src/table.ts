@@ -91,6 +91,8 @@ export interface ITableCallbacks {
     onRowHover(row: number, items: { displayName: string; value: string }[], x: number, y: number): void;
     /** Pointer left the body, or left every row within it. */
     onRowHoverEnd(): void;
+    /** Click on a Web URL cell, routed through the host's launchUrl API. */
+    onLaunchUrl(url: string): void;
 }
 
 type Row = unknown[];
@@ -122,6 +124,26 @@ function createLinkIcon(): SVGSVGElement {
     });
 
     return svg;
+}
+
+/**
+ * The URL to put in an `href`/`src`, or null if it isn't one we should follow. Only absolute
+ * http(s) — anything else (`javascript:`, `file:`, relative paths) is shown as plain text.
+ * Images may also be inline `data:` URIs, which fetch nothing.
+ */
+function safeUrl(text: string, allowData: boolean): string | null {
+    try {
+        const url = new URL(text);
+        if (/^https?:$/.test(url.protocol)) {
+            return url.href;
+        }
+        if (allowData && url.protocol === 'data:' && /^data:image\//i.test(text)) {
+            return text;
+        }
+    } catch {
+        // Not a parseable absolute URL.
+    }
+    return null;
 }
 
 function debounce(fn: () => void, wait: number): () => void {
@@ -217,6 +239,18 @@ export class SearchTable {
     /** Row index (into `rows`) that keyboard navigation is currently on, if any. */
     private focusedRow: number | null = null;
 
+    /**
+     * Lower-cased display text per column position, built the first time that column is
+     * filtered and dropped on `setData`. Saves re-running the formatter over every row on
+     * every keystroke.
+     */
+    private filterText: (string[] | undefined)[] = [];
+
+    /** Row the tooltip items were last built for, and those items, so a move within the same
+     *  row doesn't reformat every cell. */
+    private hoverRow: number | null = null;
+    private hoverItems: { displayName: string; value: string }[] = [];
+
     private readonly filterInputs = new Map<number, HTMLInputElement>();
     private readonly sortIndicators = new Map<number, HTMLElement>();
 
@@ -300,11 +334,15 @@ export class SearchTable {
      *
      * Filters are keyed by column index and survive a row-only refresh, which is what makes the
      * table usable while a slicer elsewhere on the page is being adjusted.
+     *
+     * `sort` replaces the current sort when given; `undefined` keeps whatever the user last
+     * clicked, so a cross-filter or a data page arriving doesn't throw it away.
      */
     public setData(
         columns: ITableColumn[],
         rows: Row[],
-        cellStyles?: (ICellStyle | null)[][] | null
+        cellStyles?: (ICellStyle | null)[][] | null,
+        sort?: ISortState | null
     ): void {
         const columnsChanged =
             columns.length !== this.columns.length ||
@@ -313,6 +351,8 @@ export class SearchTable {
         this.columns = columns;
         this.rows = rows;
         this.cellStyles = cellStyles || null;
+        this.filterText = [];
+        this.hoverRow = null;
 
         if (columnsChanged) {
             this.filters.clear();
@@ -321,6 +361,11 @@ export class SearchTable {
             }
             this.order = columns.map((_, i) => i);
             this.buildHeader();
+        }
+
+        if (sort !== undefined) {
+            this.sort = sort;
+            this.updateSortIndicators();
         }
 
         this.refreshView();
@@ -361,13 +406,6 @@ export class SearchTable {
         }
         this.renderBody();
         this.renderTotals();
-    }
-
-    /** Applies the sort coming from Power BI's own field-well sort state. */
-    public setSort(sort: ISortState | null): void {
-        this.sort = sort;
-        this.updateSortIndicators();
-        this.refreshView();
     }
 
     /** Mirrors a selection made elsewhere in the report, without echoing it back out. */
@@ -638,13 +676,19 @@ export class SearchTable {
             this.renderBody();
             this.renderTotals();
         };
-        const onUp = (upEvt: PointerEvent) => {
-            handle.releasePointerCapture(upEvt.pointerId);
+        const onEnd = (endEvt: PointerEvent) => {
+            try {
+                handle.releasePointerCapture(endEvt.pointerId);
+            } catch {
+                // Pointer capture may have already been released by the browser.
+            }
             handle.removeEventListener('pointermove', onMove);
-            handle.removeEventListener('pointerup', onUp);
+            handle.removeEventListener('pointerup', onEnd);
+            handle.removeEventListener('pointercancel', onEnd);
         };
         handle.addEventListener('pointermove', onMove);
-        handle.addEventListener('pointerup', onUp);
+        handle.addEventListener('pointerup', onEnd);
+        handle.addEventListener('pointercancel', onEnd);
     }
 
     /** Moves column `source` to sit where `target` currently is, and repaints. */
@@ -710,22 +754,19 @@ export class SearchTable {
     /** Recomputes which rows are shown, in what order, then repaints the body. */
     private refreshView(): void {
         const columnsByIndex = this.columns;
-        const active: { position: number; needle: string; column: ITableColumn }[] = [];
+        const active: { texts: string[]; needle: string }[] = [];
         this.filters.forEach((needle, i) => {
-            const column = columnsByIndex[i];
-            if (column) {
-                active.push({ position: column.index, needle, column });
+            if (columnsByIndex[i]) {
+                active.push({ texts: this.filterTextFor(i), needle });
             }
         });
 
         const view: number[] = [];
         for (let r = 0; r < this.rows.length; r++) {
-            const row = this.rows[r];
             let keep = true;
             for (let f = 0; f < active.length; f++) {
-                const { position, needle, column } = active[f];
-                const text = this.formatCell(row[position], column).toLowerCase();
-                if (text.indexOf(needle) < 0) {
+                const { texts, needle } = active[f];
+                if (texts[r].indexOf(needle) < 0) {
                     keep = false;
                     break;
                 }
@@ -760,6 +801,17 @@ export class SearchTable {
         this.renderTotals();
     }
 
+    /** Lower-cased display text of every row in column `position`, built once per data set. */
+    private filterTextFor(position: number): string[] {
+        let texts = this.filterText[position];
+        if (!texts) {
+            const column = this.columns[position];
+            texts = this.rows.map((row) => this.formatCell(row[column.index], column).toLowerCase());
+            this.filterText[position] = texts;
+        }
+        return texts;
+    }
+
     /** Sum of each numeric column over the current (filtered) view, in a row below the body. */
     private renderTotals(): void {
         this.footRow.textContent = '';
@@ -779,13 +831,18 @@ export class SearchTable {
 
             if (column.type === 'number') {
                 let sum = 0;
+                let hasValue = false;
                 for (let v = 0; v < this.view.length; v++) {
-                    const n = Number(this.rows[this.view[v]][column.index]);
-                    if (!isNaN(n)) {
-                        sum += n;
+                    const raw = this.rows[this.view[v]][column.index];
+                    if (raw !== null && raw !== undefined && raw !== '') {
+                        const n = Number(raw);
+                        if (!isNaN(n)) {
+                            sum += n;
+                            hasValue = true;
+                        }
                     }
                 }
-                const text = this.formatterFor(column).format(sum);
+                const text = hasValue ? this.formatterFor(column).format(sum) : '';
                 cell.textContent = text;
                 cell.title = text;
             } else if (!labelPlaced) {
@@ -879,19 +936,21 @@ export class SearchTable {
                 }
                 td.style.width = `${this.renderWidths[position]}px`;
                 const text = this.formatCell(row[column.index], column);
+                const imageSrc = column.isImage && text !== '' ? safeUrl(text, true) : null;
+                const linkHref = column.isUrl && text !== '' ? safeUrl(text, false) : null;
                 if (text === '') {
                     td.classList.add('ts-missing');
-                } else if (column.isImage) {
+                } else if (imageSrc) {
                     const img = document.createElement('img');
                     img.className = 'ts-image';
-                    img.src = text;
+                    img.src = imageSrc;
                     img.alt = column.label;
                     img.style.maxHeight = `${Math.max(1, this.rowHeight - 4)}px`;
                     td.appendChild(img);
-                } else if (column.isUrl) {
+                } else if (linkHref) {
                     const link = document.createElement('a');
                     link.className = 'ts-link';
-                    link.href = text;
+                    link.href = linkHref;
                     link.target = '_blank';
                     link.rel = 'noopener noreferrer';
                     link.title = text;
@@ -902,8 +961,12 @@ export class SearchTable {
                     } else {
                         link.textContent = text;
                     }
-                    // Opening the link is not a row selection; stop it there.
-                    link.addEventListener('click', (evt) => evt.stopPropagation());
+                    // Opening the link delegates to the host and should not select the row.
+                    link.addEventListener('click', (evt) => {
+                        evt.preventDefault();
+                        evt.stopPropagation();
+                        this.callbacks.onLaunchUrl(linkHref);
+                    });
                     td.appendChild(link);
                 } else {
                     td.textContent = text;
@@ -957,10 +1020,11 @@ export class SearchTable {
 
     private onBodyContextMenu(evt: MouseEvent): void {
         const target = (evt.target as HTMLElement).closest('.ts-row') as HTMLElement | null;
-        evt.preventDefault();
         if (!target) {
+            // Empty space below the rows: left for the visual's catch-all menu.
             return;
         }
+        evt.preventDefault();
         this.callbacks.onRowContextMenu(Number(target.dataset.row), evt.clientX, evt.clientY);
     }
 
@@ -977,11 +1041,14 @@ export class SearchTable {
             return;
         }
 
-        const items = this.columns.map((column) => ({
-            displayName: column.label,
-            value: this.formatCell(row[column.index], column) || '—',
-        }));
-        this.callbacks.onRowHover(rowIndex, items, evt.clientX, evt.clientY);
+        if (rowIndex !== this.hoverRow) {
+            this.hoverRow = rowIndex;
+            this.hoverItems = this.columns.map((column) => ({
+                displayName: column.label,
+                value: this.formatCell(row[column.index], column) || '—',
+            }));
+        }
+        this.callbacks.onRowHover(rowIndex, this.hoverItems, evt.clientX, evt.clientY);
     }
 
     /** Arrow keys move a focus ring through `view`; Enter/Space selects the focused row. */

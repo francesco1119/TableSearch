@@ -82,6 +82,9 @@ export class TableSearchVisual implements IVisual {
     /** Guards the table's selection callback while a report-driven selection is being applied. */
     private applyingSelection = false;
 
+    /** Power BI's field-well sort as of the last update, so it's applied only when it changes. */
+    private hostSortKey: string | null = null;
+
     /** Set while a `fetchMoreData` request is outstanding. */
     private waitingForMoreData = false;
 
@@ -103,6 +106,7 @@ export class TableSearchVisual implements IVisual {
             onRowContextMenu: (row, x, y) => this.onRowContextMenu(row, x, y),
             onRowHover: (row, items, x, y) => this.onRowHover(row, items, x, y),
             onRowHoverEnd: () => this.onRowHoverEnd(),
+            onLaunchUrl: (url) => this.host.launchUrl(url),
         });
         this.table.setLocale(this.host.locale);
         this.table.setAppearance(this.appearance());
@@ -110,6 +114,16 @@ export class TableSearchVisual implements IVisual {
         // Power BI can clear or change the selection from outside the visual — another visual's
         // selection, or the report's clear-filter button. Mirror that back into the table.
         this.selectionManager.registerOnSelectCallback(() => this.restoreSelection());
+
+        // Right-click anywhere a row or header didn't claim (empty space, totals row): the host's
+        // menu with an empty selection, as certification requires a menu everywhere in the visual.
+        options.element.addEventListener('contextmenu', (evt) => {
+            if (evt.defaultPrevented) {
+                return;
+            }
+            evt.preventDefault();
+            void this.selectionManager.showContextMenu({}, { x: evt.clientX, y: evt.clientY });
+        });
     }
 
     public update(options: VisualUpdateOptions): void {
@@ -143,8 +157,18 @@ export class TableSearchVisual implements IVisual {
         this.ids = ids;
         this.columnIds = columnIds;
 
-        this.table.setData(columns, rows, styles);
-        this.table.setSort(sort);
+        // Only push Power BI's sort when it actually changed; otherwise every update (a
+        // cross-filter, a data page, a format-pane edit) would wipe the sort the user clicked.
+        const sortColumn = sort && table.columns[sort.column];
+        const sortColumnId = sortColumn?.queryName || sortColumn?.displayName || '';
+        // The field list is part of the key: if it changes, a kept sort index could point at a
+        // different column, so the host's sort is re-applied.
+        const fieldsKey = table.columns.map((c) => c.queryName || c.displayName).join('|');
+        const sortKey = `${fieldsKey}#${sort ? `${sortColumnId}:${sort.direction}` : ''}`;
+        const sortChanged = sortKey !== this.hostSortKey;
+        this.hostSortKey = sortKey;
+
+        this.table.setData(columns, rows, styles, sortChanged ? sort : undefined);
         this.table.layout();
         this.restoreSelection();
 
@@ -175,7 +199,9 @@ export class TableSearchVisual implements IVisual {
 
     public destroy(): void {
         this.table.destroy();
+        this.container.remove();
         this.ids = [];
+        this.columnIds = [];
     }
 
     private extract(table: DataViewTable): IExtracted {
@@ -274,18 +300,12 @@ export class TableSearchVisual implements IVisual {
 
     /** Right-click on a column header: the host's own menu, including conditional formatting. */
     private onColumnContextMenu(column: number, x: number, y: number): void {
-        const id = this.columnIds[column];
-        if (id) {
-            void this.selectionManager.showContextMenu(id, { x, y });
-        }
+        void this.selectionManager.showContextMenu(this.columnIds[column] || {}, { x, y });
     }
 
     /** Right-click on a row: the host's own menu (filter, drillthrough, ...) for that data point. */
     private onRowContextMenu(row: number, x: number, y: number): void {
-        const id = this.ids[row];
-        if (id) {
-            void this.selectionManager.showContextMenu(id, { x, y });
-        }
+        void this.selectionManager.showContextMenu(this.ids[row] || {}, { x, y });
     }
 
     /** Pointer over a row: the host's default tooltip, one line per column. */
